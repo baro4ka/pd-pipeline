@@ -5,7 +5,7 @@ scikit-learn==1.8.0
 matplotlib==3.10.9
 
 # Data validation
-great-expectations
+great-expectations==1.24.0
 
 # Experiment tracking
 mlflow

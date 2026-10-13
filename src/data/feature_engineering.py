@@ -3,6 +3,7 @@
 Adds aggregated features from the 6-month payment history, billing/payment
 amounts, age binning and a log credit-limit. See the EDA notebook for context.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -30,14 +31,14 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     pay = df[PAY_COLS]
 
     # --- Aggregates over the 6-month payment history ---
-    df["pay_max_status"] = pay.max(axis=1)          # worst payment delay (0..8)
+    df["pay_max_status"] = pay.max(axis=1)  # worst payment delay (0..8)
     df["pay_min_status"] = pay.min(axis=1)
     df["pay_mean_status"] = pay.mean(axis=1)
     df["pay_std_status"] = pay.std(axis=1).fillna(0.0)
-    df["pay_num_late"] = (pay > 0).sum(axis=1)      # months with any delay
-    df["pay_num_severe"] = (pay >= 2).sum(axis=1)   # months delayed >= 2
+    df["pay_num_late"] = (pay > 0).sum(axis=1)  # months with any delay
+    df["pay_num_severe"] = (pay >= 2).sum(axis=1)  # months delayed >= 2
     df["pay_num_norecord"] = (pay == -2).sum(axis=1)  # months with no credit record
-    df["pay_trend"] = df["PAY_0"] - df["PAY_6"]     # >0: worsening over time
+    df["pay_trend"] = df["PAY_0"] - df["PAY_6"]  # >0: worsening over time
     df["pay_consec_late"] = _consecutive_late(pay)
 
     # --- Billing / previous-payment amounts ---
@@ -48,12 +49,12 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df["bill_trend"] = df["BILL_AMT1"] - df["BILL_AMT6"]  # recent vs oldest
     df["payamt_mean"] = payamt.mean(axis=1)
     df["payamt_max"] = payamt.max(axis=1)
-    df["pay_to_bill"] = np.where(df["BILL_AMT1"] > 0,
-                                 df["PAY_AMT1"] / df["BILL_AMT1"], 0.0)
+    df["pay_to_bill"] = np.where(df["BILL_AMT1"] > 0, df["PAY_AMT1"] / df["BILL_AMT1"], 0.0)
 
     # --- Age binning ---
-    df["age_group"] = pd.cut(df["AGE"], bins=[0, 25, 35, 45, 55, 200],
-                             labels=[0, 1, 2, 3, 4]).astype(int)
+    df["age_group"] = pd.cut(
+        df["AGE"], bins=[0, 25, 35, 45, 55, 200], labels=[0, 1, 2, 3, 4]
+    ).astype(int)
 
     # --- Credit limit (log) ---
     df["limit_bal_log"] = np.log1p(df["LIMIT_BAL"].clip(lower=0))
@@ -62,8 +63,21 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 FEATURED_COLS = [
-    "pay_max_status", "pay_min_status", "pay_mean_status", "pay_std_status",
-    "pay_num_late", "pay_num_severe", "pay_num_norecord", "pay_trend",
-    "pay_consec_late", "bill_mean", "bill_max", "bill_trend", "payamt_mean",
-    "payamt_max", "pay_to_bill", "age_group", "limit_bal_log",
+    "pay_max_status",
+    "pay_min_status",
+    "pay_mean_status",
+    "pay_std_status",
+    "pay_num_late",
+    "pay_num_severe",
+    "pay_num_norecord",
+    "pay_trend",
+    "pay_consec_late",
+    "bill_mean",
+    "bill_max",
+    "bill_trend",
+    "payamt_mean",
+    "payamt_max",
+    "pay_to_bill",
+    "age_group",
+    "limit_bal_log",
 ]

@@ -50,6 +50,10 @@ pip install -r requirements.txt
 # EDA
 jupyter notebook notebooks/01_eda.ipynb
 
+# Валидация данных (Great Expectations, CI-шаг)
+python -m src.data.validate_data            # data/raw/UCI_Credit_Card.csv
+python -m src.data.validate_data path.csv   # произвольный файл; exit 1 при аномалиях
+
 # Тесты (F6)
 pytest
 
@@ -62,7 +66,7 @@ uvicorn src.api.app:app --port 8000
 | # | Этап | Статус |
 |---|------|--------|
 | 1 | Git + структура + README | ✅ |
-| 2 | EDA, Feature Engineering, валидация (GE/Pandera) | ⏳ FE готово, GE в F2 |
+| 2 | EDA, Feature Engineering, валидация (GE/Pandera) | ✅ |
 | 3 | Sklearn Pipeline + GridSearchCV + метрики | ⏳ F3 |
 | 4 | MLflow (≥5 экспериментов) | ⏳ F4 |
 | 5 | DVC (dvc.yaml, prepare/train) | ⏳ F5 |

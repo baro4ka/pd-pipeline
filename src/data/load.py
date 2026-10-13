@@ -1,4 +1,5 @@
 """Data loading and initial cleaning for the PD (default prediction) model."""
+
 from pathlib import Path
 
 import pandas as pd
