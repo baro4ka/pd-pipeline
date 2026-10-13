@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+venv/
+env/
+.venv/
+ENV/
+
+# Data (managed by DVC from F5)
+data/processed/*
+!data/processed/.gitkeep
+*.csv
+
+# Models / artifacts
+models/*
+!models/.gitkeep
+mlruns/
+*.pkl
+*.joblib
+
+# DVC
+.dvc/cache/
+.dvc/tmp/
+.dvc/config.local
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,72 @@
+# PD-пайплайн: модель предсказания дефолта (MLOps)
+
+Сквозной автоматизированный пайплайн разработки, тестирования, развёртывания и
+мониторинга скоринговой модели предсказания вероятности дефолта клиента (PD-модель).
+
+- **Дисциплина:** Автоматизация процессов разработки и тестирования моделей ML (магистратура, 3 семестр)
+- **Домен:** финансы / кредитный скоринг
+- **Датасет:** [Default of Credit Card Clients](https://archive.ics.uci.edu/dataset/350/default-of-credit-card-clients-dataset) (UCI) — 30 000 клиентов, таргет `default.payment.next.month`
+
+## Структура
+
+```
+pd-pipeline/
+├── data/
+│   ├── raw/          # исходный UCI_Credit_Card.csv (управляется DVC)
+│   └── processed/    # подготовленные данные
+├── notebooks/        # EDA и эксперименты
+│   └── 01_eda.ipynb
+├── src/
+│   ├── data/         # загрузка, очистка, feature engineering, валидация
+│   │   ├── load.py
+│   │   ├── feature_engineering.py
+│   │   └── validation.py      # Great Expectations (F2)
+│   ├── models/       # sklearn Pipeline, обучение, MLflow
+│   │   ├── pipeline.py        # (F3)
+│   │   └── train.py           # (F4)
+│   └── api/          # FastAPI /predict (F7)
+│       └── app.py
+├── tests/            # pytest (F6)
+├── models/           # обученные модели (DVC)
+├── dvc.yaml          # DVC-пайплайн prepare/train (F5)
+├── requirements.txt
+└── README.md
+```
+
+## Установка
+
+```bash
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+```
+
+Данные: `data/raw/UCI_Credit_Card.csv` (после `dvc pull` на этапе F5;
+локально файл уже на месте).
+
+## Запуск
+
+```bash
+# EDA
+jupyter notebook notebooks/01_eda.ipynb
+
+# Тесты (F6)
+pytest
+
+# API (F7)
+uvicorn src.api.app:app --port 8000
+```
+
+## Этапы (по критериям ТЗ)
+
+| # | Этап | Статус |
+|---|------|--------|
+| 1 | Git + структура + README | ✅ |
+| 2 | EDA, Feature Engineering, валидация (GE/Pandera) | ⏳ FE готово, GE в F2 |
+| 3 | Sklearn Pipeline + GridSearchCV + метрики | ⏳ F3 |
+| 4 | MLflow (≥5 экспериментов) | ⏳ F4 |
+| 5 | DVC (dvc.yaml, prepare/train) | ⏳ F5 |
+| 6 | pytest + GitHub Actions | ⏳ F6 |
+| 7 | Docker + FastAPI /predict | ⏳ F7 |
+| 8 | Мониторинг дрифта (PSI) | ⏳ F8 |
+| 9 | Презентация | ⏳ F9 |

@@ -1,0 +1,23 @@
+# Core data / ML
+numpy==2.4.5
+pandas==2.3.3
+scikit-learn==1.8.0
+matplotlib==3.10.9
+
+# Data validation
+great-expectations
+
+# Experiment tracking
+mlflow
+
+# Data / model versioning
+dvc
+
+# Serving
+fastapi
+uvicorn[standard]
+
+# Testing / lint
+pytest
+flake8
+black
