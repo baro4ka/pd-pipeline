@@ -57,9 +57,22 @@ python -m src.data.validate_data path.csv   # произвольный файл;
 # Тесты (F6)
 pytest
 
+# Обучение (GridSearchCV: logreg + gradient boosting)
+python -m src.models.train           # полный датасет; артефакты в data/processed/
+python -m src.models.train --quick   # сабсэмпл 5k (быстрая проверка)
+
 # API (F7)
 uvicorn src.api.app:app --port 8000
 ```
+
+## Текущие результаты (F3, датасет 30 000, split 80/20 stratified)
+
+| Модель | Best params (GridSearchCV, scoring=roc_auc, cv=5) | CV ROC-AUC | Test ROC-AUC | P | R | F1 |
+|--------|---------------------------------------------------|-----------|--------------|------|------|------|
+| LogisticRegression (class_weight=balanced) | C=10 | 0.772 | 0.757 | 0.438 | 0.613 | 0.511 |
+| GradientBoostingClassifier | lr=0.1, depth=3, n=200 | 0.783 | 0.776 | 0.646 | 0.376 | 0.475 |
+
+ROC-кривая: `data/processed/roc_curve.png`, таблица метрик: `data/processed/metrics.csv`.
 
 ## Этапы (по критериям ТЗ)
 
@@ -67,7 +80,7 @@ uvicorn src.api.app:app --port 8000
 |---|------|--------|
 | 1 | Git + структура + README | ✅ |
 | 2 | EDA, Feature Engineering, валидация (GE/Pandera) | ✅ |
-| 3 | Sklearn Pipeline + GridSearchCV + метрики | ⏳ F3 |
+| 3 | Sklearn Pipeline + GridSearchCV + метрики | ✅ |
 | 4 | MLflow (≥5 экспериментов) | ⏳ F4 |
 | 5 | DVC (dvc.yaml, prepare/train) | ⏳ F5 |
 | 6 | pytest + GitHub Actions | ⏳ F6 |
