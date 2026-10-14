@@ -7,6 +7,7 @@ import pandas as pd
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 RAW_CSV = DATA_DIR / "raw" / "UCI_Credit_Card.csv"
 PROCESSED_DIR = DATA_DIR / "processed"
+MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
 
 TARGET = "default.payment.next.month"
 

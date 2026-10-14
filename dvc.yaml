@@ -1,0 +1,20 @@
+stages:
+  prepare:
+    cmd: python -m src.data.prepare
+    deps:
+      - data/raw/UCI_Credit_Card.csv
+      - src/data/load.py
+      - src/data/feature_engineering.py
+      - src/data/prepare.py
+    outs:
+      - data/processed/features.csv
+
+  train:
+    cmd: python -m src.models.train --data data/processed/features.csv
+    deps:
+      - data/processed/features.csv
+      - src/models/pipeline.py
+      - src/models/train.py
+    outs:
+      - models/best_model.joblib
+      - data/processed/metrics.csv

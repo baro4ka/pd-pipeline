@@ -14,7 +14,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    HistGradientBoostingClassifier,
+    RandomForestClassifier,
+)
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
@@ -73,6 +77,23 @@ def make_preprocessor() -> ColumnTransformer:
 
 def make_model_pipeline(model) -> Pipeline:
     return Pipeline(steps=[("preprocessor", make_preprocessor()), ("model", model)])
+
+
+def make_model(name: str, **params):
+    """Model factory: 'logreg', 'gb', 'hgb', 'rf'."""
+    if name == "logreg":
+        model = LogisticRegression(max_iter=1000, class_weight="balanced")
+    elif name == "gb":
+        model = GradientBoostingClassifier(random_state=42)
+    elif name == "hgb":
+        model = HistGradientBoostingClassifier(random_state=42)
+    elif name == "rf":
+        model = RandomForestClassifier(random_state=42, class_weight="balanced")
+    else:
+        raise ValueError(f"Unknown model: {name}")
+    for key, value in params.items():
+        setattr(model, key, value)
+    return model
 
 
 def default_param_grids() -> dict:

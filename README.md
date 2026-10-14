@@ -33,6 +33,20 @@ pd-pipeline/
 └── README.md
 ```
 
+## Публикация в GitHub (CI + DVC remote)
+
+```bash
+git remote add origin https://github.com/<user>/pd-pipeline.git
+git push -u origin main
+
+# DVC remote — тот же репозиторий (публичный, pull в CI без токена)
+dvc remote add -d origin https://github.com/<user>/pd-pipeline.git
+dvc push
+```
+
+После пуша GitHub Actions (`.github/workflows/ci.yml`) автоматически:
+flake8 → black --check → dvc pull → валидация Great Expectations → pytest.
+
 ## Установка
 
 ```bash
@@ -57,12 +71,25 @@ python -m src.data.validate_data path.csv   # произвольный файл;
 # Тесты (F6)
 pytest
 
-# Обучение (GridSearchCV: logreg + gradient boosting)
-python -m src.models.train           # полный датасет; артефакты в data/processed/
+# Обучение (5 экспериментов в MLflow: logreg/gb GridSearchCV + gb/hgb/rf фикс. конфиги)
+python -m src.models.train           # полный датасет; артефакты в data/processed/ и mlruns/
 python -m src.models.train --quick   # сабсэмпл 5k (быстрая проверка)
 
-# API (F7)
+# MLflow UI (эксперименты, метрики, модели, ROC-кривые)
+mlflow ui --backend-store-uri file:mlruns
+
+# API локально (F7)
 uvicorn src.api.app:app --port 8000
+
+# Docker: сборка образа + запуск контейнера + проверка /health и /predict
+.\scripts\build_and_run.ps1        # Windows
+./scripts/build_and_run.sh         # Linux/macOS
+
+# Мониторинг дрифта (F8): «новые» данные (часть тестовой) -> API -> PSI
+python -m src.monitoring.drift --api http://localhost:8000 --n 1000
+
+# DVC-пайплайн (prepare -> train)
+dvc repro
 ```
 
 ## Текущие результаты (F3, датасет 30 000, split 80/20 stratified)
@@ -81,9 +108,9 @@ ROC-кривая: `data/processed/roc_curve.png`, таблица метрик: `
 | 1 | Git + структура + README | ✅ |
 | 2 | EDA, Feature Engineering, валидация (GE/Pandera) | ✅ |
 | 3 | Sklearn Pipeline + GridSearchCV + метрики | ✅ |
-| 4 | MLflow (≥5 экспериментов) | ⏳ F4 |
-| 5 | DVC (dvc.yaml, prepare/train) | ⏳ F5 |
-| 6 | pytest + GitHub Actions | ⏳ F6 |
-| 7 | Docker + FastAPI /predict | ⏳ F7 |
-| 8 | Мониторинг дрифта (PSI) | ⏳ F8 |
+| 4 | MLflow (≥5 экспериментов) | ✅ |
+| 5 | DVC (dvc.yaml, prepare/train) | ✅ |
+| 6 | pytest + GitHub Actions | ✅ (workflow готов, запуск после пуша в GitHub) |
+| 7 | Docker + FastAPI /predict | ✅ |
+| 8 | Мониторинг дрифта (PSI) | ✅ |
 | 9 | Презентация | ⏳ F9 |
