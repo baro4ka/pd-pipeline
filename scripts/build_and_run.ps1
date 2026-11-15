@@ -11,7 +11,18 @@ docker rm -f pd-api 2>$null
 docker run -d --name pd-api -p 8000:8000 pd-model:latest
 if ($LASTEXITCODE -ne 0) { throw "запуск контейнера не удался" }
 
-Start-Sleep -Seconds 8
+# ждём, пока uvicorn поднимет приложение и загрузит модель (до 60 с)
+$ok = $false
+for ($i = 0; $i -lt 30; $i++) {
+    Start-Sleep -Seconds 2
+    try {
+        Invoke-RestMethod http://localhost:8000/health -ErrorAction Stop | Out-Null
+        $ok = $true
+        break
+    } catch {}
+}
+if (-not $ok) { throw "API не ответил за 60 секунд: docker logs pd-api" }
+
 Write-Host "`n--- /health ---"
 Invoke-RestMethod http://localhost:8000/health | ConvertTo-Json
 
