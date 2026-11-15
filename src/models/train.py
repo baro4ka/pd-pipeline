@@ -1,18 +1,16 @@
-"""Training entry point with MLflow tracking.
+"""Точка входа в обучение с трекингом в MLflow.
 
-Usage:
-    python -m src.models.train            # full dataset, 5 MLflow experiments
-    python -m src.models.train --quick    # 5k-row subsample (fast smoke run)
+Запуск:
+    python -m src.models.train             # полный датасет, 5 экспериментов
+    python -m src.models.train --subsample # подвыборка 5k строк (быстрый прогон)
 
-MLflow (file store in <repo>/mlruns):
-    * params: model, best/fixed hyperparameters, dataset size, feature count
-    * metrics: cv_roc_auc + test roc_auc/precision/recall/f1
-    * artifacts: ROC curve, trained model (mlflow.sklearn.log_model)
+MLflow (file store в <repo>/mlruns):
+    * параметры: модель, гиперпараметры, размеры выборок, число признаков
+    * метрики: cv_roc_auc + test roc_auc/precision/recall/f1
+    * артефакты: ROC-кривая, обученная модель (mlflow.sklearn.log_model)
 
-Also writes data/processed/: best_<model>.joblib, metrics.csv, roc_curve.png.
+Также пишет в data/processed/: best_<model>.joblib, metrics.csv, roc_*.png.
 """
-
-from __future__ import annotations
 
 import argparse
 import sys
@@ -28,18 +26,18 @@ from ..data.feature_engineering import build_features
 from ..data.load import MODELS_DIR, PROCESSED_DIR, TARGET, clean, load_raw
 from .pipeline import (
     FEATURES,
-    compute_metrics,
     make_model,
     make_model_pipeline,
     plot_roc_curve,
+    score_model,
     train,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MLFLOW_EXPERIMENT = "pd-pipeline"
 
-# 5 experiments: 2 with GridSearchCV (logreg, gb) + 3 fixed-config variants
-# (different algorithms / hyperparameters) — TZ requires >= 5 runs.
+# 5 экспериментов: 2 с GridSearchCV (logreg, gb) + 3 фиксированные конфигурации
+# (разные алгоритмы/гиперпараметры) — ТЗ требует не менее 5
 EXPERIMENTS = [
     {"name": "logreg_grid", "search": "logreg"},
     {"name": "gb_grid", "search": "gb"},
@@ -57,24 +55,25 @@ EXPERIMENTS = [
 ]
 
 
-def prepare_data(quick: bool = False, data_path: str | None = None) -> pd.DataFrame:
+def prepare_data(subsample=False, data_path=None):
+    """Готовит датасет: сырые данные + FE, либо готовый features.csv (выход DVC prepare)."""
     if data_path:
         df = pd.read_csv(data_path)
     else:
         df = clean(load_raw())
         df = build_features(df)
-    if quick:
+    if subsample:
         df = df.sample(5000, random_state=42)
     return df
 
 
-def run_experiment(exp: dict, X_train, y_train, X_test, y_test, cv: int):
-    """Run one experiment under an MLflow run; returns (model, params, metrics)."""
+def run_exp(exp, X_train, y_train, X_test, y_test, cv):
+    """Один эксперимент в MLflow-ране; возвращает (модель, параметры, метрики, вероятности)."""
     if "search" in exp:
         search, metrics = train(X_train, y_train, X_test, y_test, model_name=exp["search"], cv=cv)
         model = search.best_estimator_
         params = {"model": exp["search"] + "_grid", **search.best_params_}
-        params["cv_roc_auc"] = search.best_score_
+        params["cv_roc_auc"] = float(search.best_score_)
     else:
         model_obj = make_model(exp["model"], **exp["params"])
         pipeline = make_model_pipeline(model_obj)
@@ -84,28 +83,30 @@ def run_experiment(exp: dict, X_train, y_train, X_test, y_test, cv: int):
 
     y_pred = model.predict(X_test)
     y_prob = model.predict_proba(X_test)[:, 1]
-    metrics = compute_metrics(y_test.to_numpy(), y_pred, y_prob)
+    metrics = score_model(y_test.to_numpy(), y_pred, y_prob)
     return model, params, metrics, y_prob
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--quick", action="store_true", help="5k-row subsample (smoke run)")
-    parser.add_argument("--no-mlflow", action="store_true", help="skip MLflow logging")
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Обучение PD-модели с трекингом в MLflow")
+    parser.add_argument(
+        "--subsample", action="store_true", help="подвыборка 5k строк (быстрый прогон)"
+    )
+    parser.add_argument("--no-mlflow", action="store_true", help="без логирования в MLflow")
     parser.add_argument(
         "--data",
         default=None,
-        help="pre-prepared features CSV (DVC prepare stage output) instead of raw data",
+        help="готовый features.csv (выход стадии DVC prepare) вместо сырых данных",
     )
     args = parser.parse_args(argv)
 
-    df = prepare_data(quick=args.quick, data_path=args.data)
+    df = prepare_data(subsample=args.subsample, data_path=args.data)
     X = df[FEATURES]
     y = df[TARGET]
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-    print(f"train={len(X_train)} test={len(X_test)} features={len(FEATURES)}")
+    print(f"выборки: train={len(X_train)} test={len(X_test)} признаков={len(FEATURES)}")
 
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     if not args.no_mlflow:
@@ -113,16 +114,20 @@ def main(argv: list[str] | None = None) -> int:
         mlflow.set_experiment(MLFLOW_EXPERIMENT)
 
     rows = []
-    last_models: dict = {}
-    for i, exp in enumerate(EXPERIMENTS):
+    last_models = {}
+    for exp in EXPERIMENTS:
         if not args.no_mlflow:
             mlflow.start_run(run_name=exp["name"])
         try:
-            model, params, metrics, y_prob = run_experiment(
-                exp, X_train, y_train, X_test, y_test, cv=3 if args.quick else 5
+            model, params, metrics, y_prob = run_exp(
+                exp, X_train, y_train, X_test, y_test, cv=3 if args.subsample else 5
             )
-            print(f"[{exp['name']}] {params}")
-            print(f"[{exp['name']}] test={metrics}")
+            print(f"[{exp['name']}] гиперпараметры: {params}")
+            print(
+                f"[{exp['name']}] тест: ROC-AUC {metrics['roc_auc']:.3f} | "
+                f"P {metrics['precision']:.3f} | R {metrics['recall']:.3f} | "
+                f"F1 {metrics['f1']:.3f}"
+            )
 
             if not args.no_mlflow:
                 mlflow.log_params({k: str(v) for k, v in params.items()})
@@ -131,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
                         "n_train": len(X_train),
                         "n_test": len(X_test),
                         "n_features": len(FEATURES),
-                        "quick": args.quick,
+                        "subsample": args.subsample,
                     }
                 )
                 mlflow.log_metrics({f"test_{k}": v for k, v in metrics.items()})
@@ -155,16 +160,16 @@ def main(argv: list[str] | None = None) -> int:
     metrics_df = pd.DataFrame(rows)
     metrics_df.to_csv(PROCESSED_DIR / "metrics.csv", index=False)
 
-    # Save the best model (by test ROC-AUC) as the DVC-tracked model artifact.
+    # лучшая модель (по test ROC-AUC) — артефакт под DVC
     best = metrics_df.loc[metrics_df["roc_auc"].idxmax()]
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(last_models[str(best["experiment"])], MODELS_DIR / "best_model.joblib")
     print(
-        f"best model: {best['experiment']} (test roc_auc={best['roc_auc']:.4f}) "
-        "-> models/best_model.joblib"
+        f"лучшая модель: {best['experiment']} (test ROC-AUC {best['roc_auc']:.3f}) "
+        f"-> models/best_model.joblib"
     )
 
-    print(f"artifacts -> {PROCESSED_DIR}")
+    print(f"артефакты -> {PROCESSED_DIR}")
     if not args.no_mlflow:
         print(f"mlflow ui: mlflow ui --backend-store-uri file:{PROJECT_ROOT / 'mlruns'}")
     return 0

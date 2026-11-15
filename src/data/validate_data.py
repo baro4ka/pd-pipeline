@@ -1,12 +1,8 @@
-"""CLI: validate the raw dataset with the Great Expectations suite.
+"""CLI: валидация сырого датасета GE-сьюитом.
 
-Usage:
-    python -m src.data.validate_data [path-to-csv]
-
-Exits 0 if the data passes the suite, 1 otherwise (for CI usage).
+Запуск: python -m src.data.validate_data [путь-к-csv]
+Код выхода: 0 — данные в норме, 1 — есть аномалии (для CI).
 """
-
-from __future__ import annotations
 
 import sys
 from pathlib import Path
@@ -17,7 +13,7 @@ from .load import RAW_CSV
 from .validation import assert_valid
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     path = Path(args[0]) if args else RAW_CSV
     df = pd.read_csv(path)
@@ -26,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as exc:
         print(f"FAIL: {exc}")
         return 1
-    print(f"OK: {len(df)} rows passed the pd_raw_suite validation")
+    print(f"OK: {len(df)} строк прошли валидацию (pd_raw_suite)")
     return 0
 
 

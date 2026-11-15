@@ -1,4 +1,4 @@
-"""Tests for the FastAPI serving app."""
+"""Тесты FastAPI-приложения."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +10,7 @@ from src.models.pipeline import FEATURES
 
 pytestmark = pytest.mark.skipif(
     not (MODELS_DIR / "best_model.joblib").exists(),
-    reason="models/best_model.joblib not found — run training first",
+    reason="models/best_model.joblib не найден — сначала обучите модель",
 )
 
 
@@ -23,7 +23,7 @@ def sample_rows():
 
 @pytest.fixture()
 def client(sample_rows):
-    # Use a real model if available; the app loads it lazily.
+    # модель, если обучена, подхватывается приложением лениво
     with TestClient(app_module.app) as c:
         yield c, sample_rows
 

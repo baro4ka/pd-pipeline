@@ -8,16 +8,16 @@ matplotlib==3.10.9
 great-expectations==1.24.0
 
 # Experiment tracking
-mlflow
+mlflow==3.10.1
 
 # Data / model versioning
-dvc
+dvc==3.67.1
 
 # Serving
-fastapi
-uvicorn[standard]
+fastapi==0.135.2
+uvicorn[standard]==0.42.0
 
 # Testing / lint
-pytest
-flake8
-black
+pytest==9.1.1
+flake8==7.4.1
+black==26.10.1

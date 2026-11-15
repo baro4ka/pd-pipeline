@@ -1,18 +1,16 @@
-"""Sklearn pipeline: preprocessing + model, hyperparameter search, metrics.
+"""Sklearn-пайплайн: препроцессинг + модель, подбор гиперпараметров, метрики.
 
-Preprocessing (inside the pipeline, so no leakage):
-  * numeric columns: SimpleImputer (median) + StandardScaler
-  * categorical columns: SimpleImputer (constant) + OneHotEncoder
+Препроцессинг внутри пайплайна, чтобы не было утечки данных:
+  * числовые колонки: SimpleImputer (медиана) + StandardScaler
+  * категориальные: SimpleImputer (константа) + OneHotEncoder
 
-The feature matrix is built from base numeric columns (LIMIT_BAL, AGE),
-engineered features (see src.data.feature_engineering) and categoricals
+Матрица признаков: базовые числовые (LIMIT_BAL, AGE), инженерные
+(см. src/data/feature_engineering.py) и категориальные
 (SEX, EDUCATION, MARRIAGE, age_group).
 """
 
-from __future__ import annotations
-
-import numpy as np
-import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     GradientBoostingClassifier,
@@ -32,28 +30,32 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import FunctionTransformer, Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from ..data.feature_engineering import FEATURED_COLS
+
+# обучение и CI идут без GUI — графики сохраняем в файлы
+matplotlib.use("Agg")
+
 NUMERIC_BASE = ["LIMIT_BAL", "AGE"]
 CATEGORICAL_COLS = ["SEX", "EDUCATION", "MARRIAGE", "age_group"]
 
-from ..data.feature_engineering import FEATURED_COLS  # noqa: E402
-
-# Engineered numeric features (all numeric by construction).
-ENGINEERED_NUMERIC = [c for c in FEATURED_COLS if c not in ("age_group",)]
+# инженерные числовые признаки (все числовые по построению)
+ENGINEERED_NUMERIC = [c for c in FEATURED_COLS if c != "age_group"]
 
 NUMERIC_FEATURES = NUMERIC_BASE + ENGINEERED_NUMERIC
 FEATURES = NUMERIC_FEATURES + CATEGORICAL_COLS
 
 
-def _to_str(frame: pd.DataFrame) -> pd.DataFrame:
-    """Cast columns to str so a string fill_value works for any input dtype.
+def _to_str(frame):
+    """Приводит колонки к str, чтобы строковый fill_value работал для любого dtype.
 
-    A named (module-level) function: lambdas crash cloudpickle on py3.14
-    when the fitted pipeline is dumped with joblib.
+    Именованная функция (не lambda): lambda не сериализуется cloudpickle
+    на Python 3.14 при joblib.dump обученного пайплайна.
     """
     return frame.astype(str)
 
 
-def make_preprocessor() -> ColumnTransformer:
+def make_preprocessor():
+    """ColumnTransformer: числовая и категориальная ветки."""
     numeric = Pipeline(
         steps=[
             ("imputer", SimpleImputer(strategy="median")),
@@ -75,47 +77,43 @@ def make_preprocessor() -> ColumnTransformer:
     )
 
 
-def make_model_pipeline(model) -> Pipeline:
+def make_model_pipeline(model):
+    """Пайплайн: препроцессинг + модель."""
     return Pipeline(steps=[("preprocessor", make_preprocessor()), ("model", model)])
 
 
-def make_model(name: str, **params):
-    """Model factory: 'logreg', 'gb', 'hgb', 'rf'."""
+def make_model(name, **params):
+    """Создаёт модель по имени: 'logreg', 'gb', 'hgb', 'rf'."""
     if name == "logreg":
-        model = LogisticRegression(max_iter=1000, class_weight="balanced")
-    elif name == "gb":
-        model = GradientBoostingClassifier(random_state=42)
-    elif name == "hgb":
-        model = HistGradientBoostingClassifier(random_state=42)
-    elif name == "rf":
-        model = RandomForestClassifier(random_state=42, class_weight="balanced")
-    else:
-        raise ValueError(f"Unknown model: {name}")
-    for key, value in params.items():
-        setattr(model, key, value)
-    return model
+        return LogisticRegression(max_iter=1000, class_weight="balanced", **params)
+    if name == "gb":
+        return GradientBoostingClassifier(random_state=42, **params)
+    if name == "hgb":
+        return HistGradientBoostingClassifier(random_state=42, **params)
+    if name == "rf":
+        return RandomForestClassifier(random_state=42, class_weight="balanced", **params)
+    raise ValueError(f"Неизвестная модель: {name}")
 
 
-def default_param_grids() -> dict:
-    """Param grids for the base models (model.<param> pipeline naming)."""
-    return {
-        "logreg": (
-            LogisticRegression(max_iter=1000, class_weight="balanced"),
-            {"model__C": [0.01, 0.1, 1.0, 10.0]},
-        ),
-        "gb": (
-            GradientBoostingClassifier(random_state=42),
-            {
-                "model__n_estimators": [100, 200],
-                "model__learning_rate": [0.05, 0.1],
-                "model__max_depth": [2, 3],
-            },
-        ),
-    }
+# Сетки подбора для GridSearchCV (нотация pipeline: model__<параметр>)
+PARAM_GRIDS = {
+    "logreg": (
+        make_model("logreg"),
+        {"model__C": [0.01, 0.1, 1.0, 10.0]},
+    ),
+    "gb": (
+        make_model("gb"),
+        {
+            "model__n_estimators": [100, 200],
+            "model__learning_rate": [0.05, 0.1],
+            "model__max_depth": [2, 3],
+        },
+    ),
+}
 
 
-def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray) -> dict:
-    """Key binary-classification metrics on a holdout set."""
+def score_model(y_true, y_pred, y_prob):
+    """Ключевые метрики бинарной классификации на тестовой выборке."""
     return {
         "roc_auc": float(roc_auc_score(y_true, y_prob)),
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
@@ -124,38 +122,26 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_prob: np.ndarray) 
     }
 
 
-def plot_roc_curve(y_true: np.ndarray, y_prob: np.ndarray, ax=None):
-    """Draw the ROC curve; returns the matplotlib Axes."""
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
+def plot_roc_curve(y_true, y_prob, ax=None):
+    """Рисует ROC-кривую, возвращает Axes."""
     fpr, tpr, _ = roc_curve(y_true, y_prob)
     if ax is None:
         _, ax = plt.subplots(figsize=(6, 6))
     ax.plot(fpr, tpr, label=f"ROC (AUC={roc_auc_score(y_true, y_prob):.3f})")
     ax.plot([0, 1], [0, 1], "k--")
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
-    ax.set_title("ROC curve")
+    ax.set_xlabel("Доля ложных срабатываний (FPR)")
+    ax.set_ylabel("Доля истинных срабатываний (TPR)")
+    ax.set_title("ROC-кривая")
     ax.legend(loc="lower right")
     return ax
 
 
-def train(
-    X_train: pd.DataFrame,
-    y_train: pd.Series,
-    X_test: pd.DataFrame,
-    y_test: pd.Series,
-    model_name: str = "logreg",
-    cv: int = 5,
-) -> tuple[GridSearchCV, dict]:
-    """GridSearchCV over the pipeline; returns (best_search, test_metrics)."""
-    model, param_grid = default_param_grids()[model_name]
+def train(X_train, y_train, X_test, y_test, model_name="logreg", cv=5):
+    """GridSearchCV по пайплайну; возвращает (best_search, метрики теста)."""
+    model, param_grid = PARAM_GRIDS[model_name]
     pipeline = make_model_pipeline(model)
-    # n_jobs is capped (not -1): parallel workers plus the CPU-bound
-    # transcription job running on the same machine exhaust 16 GB of RAM.
+    # n_jobs ограничен (не -1): параллельные воркеры + фоновые задачи на той же
+    # машине съедают 16 ГБ RAM
     search = GridSearchCV(
         pipeline,
         param_grid,
@@ -168,5 +154,5 @@ def train(
 
     y_pred = search.predict(X_test)
     y_prob = search.predict_proba(X_test)[:, 1]
-    metrics = compute_metrics(y_test.to_numpy(), y_pred, y_prob)
+    metrics = score_model(y_test.to_numpy(), y_pred, y_prob)
     return search, metrics

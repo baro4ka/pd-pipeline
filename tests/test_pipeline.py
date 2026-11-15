@@ -1,24 +1,25 @@
-"""Unit tests for the sklearn pipeline, metrics and feature engineering."""
+"""Тесты sklearn-пайплайна, метрик и feature engineering."""
 
 import numpy as np
-import pandas as pd
 import pytest
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 
 from src.data.feature_engineering import FEATURED_COLS, build_features
-from src.data.load import load_raw
+from src.data.load import TARGET, load_raw
 from src.models.pipeline import (
     CATEGORICAL_COLS,
     FEATURES,
     NUMERIC_FEATURES,
-    compute_metrics,
     make_model_pipeline,
     make_preprocessor,
+    score_model,
     train,
 )
 
 
 @pytest.fixture(scope="module")
-def featured_df() -> pd.DataFrame:
+def featured_df():
     df = load_raw()
     df = df.drop(columns=["ID"], errors="ignore")
     return build_features(df)
@@ -50,22 +51,22 @@ def test_preprocessor_handles_missing(featured_df):
     assert np.isfinite(out).all()
 
 
-def test_compute_metrics_perfect():
+def test_score_model_perfect():
     y_true = np.array([0, 0, 1, 1])
     y_pred = np.array([0, 0, 1, 1])
     y_prob = np.array([0.1, 0.2, 0.8, 0.9])
-    m = compute_metrics(y_true, y_pred, y_prob)
+    m = score_model(y_true, y_pred, y_prob)
     assert m["roc_auc"] == pytest.approx(1.0)
     assert m["precision"] == pytest.approx(1.0)
     assert m["recall"] == pytest.approx(1.0)
     assert m["f1"] == pytest.approx(1.0)
 
 
-def test_compute_metrics_handles_zero_division():
+def test_score_model_zero_division():
     y_true = np.array([0, 0, 1, 1])
     y_pred = np.array([0, 0, 0, 0])
     y_prob = np.array([0.1, 0.2, 0.3, 0.4])
-    m = compute_metrics(y_true, y_pred, y_prob)
+    m = score_model(y_true, y_pred, y_prob)
     assert m["precision"] == 0.0
     assert m["recall"] == 0.0
     assert m["f1"] == 0.0
@@ -74,25 +75,17 @@ def test_compute_metrics_handles_zero_division():
 
 def test_train_end_to_end_quick(featured_df):
     df = featured_df.sample(1500, random_state=3)
-    from sklearn.model_selection import train_test_split
-
-    from src.data.load import TARGET
-
     X_train, X_test, y_train, y_test = train_test_split(
         df[FEATURES], df[TARGET], test_size=0.2, random_state=42, stratify=df[TARGET]
     )
     search, metrics = train(X_train, y_train, X_test, y_test, model_name="logreg", cv=3)
-    assert search.best_score_ > 0.5  # better than random
+    assert search.best_score_ > 0.5  # лучше случайного
     assert metrics["roc_auc"] > 0.5
     assert 0.0 <= metrics["f1"] <= 1.0
 
 
 def test_model_pipeline_predicts_proba(featured_df):
     df = featured_df.sample(300, random_state=4)
-    from sklearn.linear_model import LogisticRegression
-
-    from src.data.load import TARGET
-
     pipe = make_model_pipeline(LogisticRegression(max_iter=500))
     pipe.fit(df[FEATURES], df[TARGET])
     proba = pipe.predict_proba(df[FEATURES])

@@ -1,15 +1,15 @@
-# Build the Docker image and run the API container locally.
-# Usage: .\scripts\build_and_run.ps1
+# Сборка Docker-образа и локальный запуск API-контейнера.
+# Запуск: .\scripts\build_and_run.ps1
 
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 docker build -t pd-model:latest .
-if ($LASTEXITCODE -ne 0) { throw "docker build failed" }
+if ($LASTEXITCODE -ne 0) { throw "сборка образа не удалась" }
 
 docker rm -f pd-api 2>$null
 docker run -d --name pd-api -p 8000:8000 pd-model:latest
-if ($LASTEXITCODE -ne 0) { throw "docker run failed" }
+if ($LASTEXITCODE -ne 0) { throw "запуск контейнера не удался" }
 
 Start-Sleep -Seconds 8
 Write-Host "`n--- /health ---"
@@ -28,5 +28,5 @@ $sample = @{
 Invoke-RestMethod -Method Post -Uri http://localhost:8000/predict `
     -ContentType "application/json" -Body ($sample | ConvertTo-Json) | ConvertTo-Json
 
-Write-Host "`nAPI is running at http://localhost:8000 (container: pd-api)"
-Write-Host "Stop it with: docker rm -f pd-api"
+Write-Host "`nAPI запущен: http://localhost:8000 (контейнер: pd-api)"
+Write-Host "Остановка: docker rm -f pd-api"

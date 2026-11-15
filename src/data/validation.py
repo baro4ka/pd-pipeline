@@ -1,21 +1,14 @@
-"""Data validation for the PD pipeline using Great Expectations (1.x fluent API).
+"""Валидация входящих данных через Great Expectations (fluent API 1.x).
 
-The suite ``pd_raw_suite`` checks the incoming raw dataset for:
-  * the expected set of columns (exact match),
-  * missing values (nulls) in every column,
-  * data types (integer vs float columns),
-  * value domains (categorical codes, payment status) and ranges
-    (age, credit limit, bill/payment amounts).
+Сюит pd_raw_suite проверяет сырой датасет: точный набор колонок, пропуски,
+типы, домены кодировок/статусов оплаты и диапазоны значений.
 
-Usage:
+Использование:
     from src.data.validation import assert_valid, validate_raw
-    result = validate_raw(df)      # ExpectationSuiteValidationResult
-    assert_valid(df)               # raises ValueError on failure
+    result = validate_raw(df)      # результат валидации GE
+    assert_valid(df)               # ValueError при несоответствии
 """
 
-from __future__ import annotations
-
-import pandas as pd
 import great_expectations as ge
 from great_expectations.core import ExpectationSuite
 from great_expectations.expectations import (
@@ -49,7 +42,7 @@ EXPECTED_COLUMNS = [
     TARGET,
 ]
 
-# Payment status: -2 paid off, -1 no debt, 0 paid on time, 1..8 months delayed.
+# Статус оплаты: -2 погашено, -1 долга нет, 0 в срок, 1..8 месяцев просрочки
 PAY_STATUS_DOMAIN = [-2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8]
 SEX_DOMAIN = [1, 2]
 EDUCATION_DOMAIN = [0, 1, 2, 3, 4, 5, 6]
@@ -58,11 +51,11 @@ MARRIAGE_DOMAIN = [0, 1, 2, 3]
 INT_COLUMNS = ["SEX", "EDUCATION", "MARRIAGE", "AGE", *PAY_COLS, TARGET]
 FLOAT_COLUMNS = ["LIMIT_BAL", *BILL_COLS, *PAYAMT_COLS]
 
-_ctx: "ge.data_context.data_context.abstract_data_context.AbstractDataContext | None" = None
+_ctx = None
 
 
 def _get_context():
-    """Shared ephemeral data context (created lazily once per process)."""
+    """Общий ephemeral-контекст GE (создаётся один раз на процесс)."""
     global _ctx
     if _ctx is None:
         _ctx = ge.get_context()
@@ -70,35 +63,33 @@ def _get_context():
     return _ctx
 
 
-def build_raw_suite() -> ExpectationSuite:
-    """Build the Great Expectations suite for the raw UCI credit-card data."""
-    _get_context()  # add_expectation requires an active data context
+def build_raw_suite():
+    """Собирает GE-сьюит для сырых данных UCI Credit Card."""
+    _get_context()  # add_expectation требует активный data context
     suite = ExpectationSuite(
         name=SUITE_NAME,
-        meta={"description": "Incoming raw data validation (UCI Credit Card)"},
+        meta={"description": "Валидация входящих сырых данных (UCI Credit Card)"},
     )
 
-    # --- Schema: exact column set ---
+    # схема: точный набор колонок
     suite.add_expectation(
         ExpectTableColumnsToMatchSet(column_set=EXPECTED_COLUMNS, exact_match=True)
     )
 
-    # --- Nulls ---
+    # пропуски
     for col in EXPECTED_COLUMNS:
         suite.add_expectation(ExpectColumnValuesToNotBeNull(column=col))
 
-    # --- Data types ---
-    # Categorical codes, payment status and the target must be integers.
+    # типы: коды, статусы и таргет — целые
     for col in INT_COLUMNS:
         suite.add_expectation(ExpectColumnValuesToBeOfType(column=col, type_="int64"))
-    # Amount columns are numeric; int64 is allowed because a CSV round-trip
-    # reads all-integer columns as int64.
+    # суммы: int64 допустим, т.к. CSV round-trip читает целочисленные колонки как int64
     for col in FLOAT_COLUMNS:
         suite.add_expectation(
             ExpectColumnValuesToBeInTypeList(column=col, type_list=["int64", "float64"])
         )
 
-    # --- Value domains ---
+    # домены значений
     suite.add_expectation(ExpectColumnValuesToBeInSet(column="SEX", value_set=SEX_DOMAIN))
     suite.add_expectation(
         ExpectColumnValuesToBeInSet(column="EDUCATION", value_set=EDUCATION_DOMAIN)
@@ -108,7 +99,7 @@ def build_raw_suite() -> ExpectationSuite:
         suite.add_expectation(ExpectColumnValuesToBeInSet(column=col, value_set=PAY_STATUS_DOMAIN))
     suite.add_expectation(ExpectColumnValuesToBeInSet(column=TARGET, value_set=[0, 1]))
 
-    # --- Ranges (observed dataset bounds with safety margin) ---
+    # диапазоны: фактические границы датасета + запас
     suite.add_expectation(ExpectColumnValuesToBeBetween(column="AGE", min_value=21, max_value=80))
     suite.add_expectation(
         ExpectColumnValuesToBeBetween(column="LIMIT_BAL", min_value=0, max_value=2_000_000)
@@ -125,22 +116,22 @@ def build_raw_suite() -> ExpectationSuite:
     return suite
 
 
-def validate_raw(
-    df: pd.DataFrame, suite: ExpectationSuite | None = None
-) -> "ge.core.expectation_validation_result.ExpectationSuiteValidationResult":
-    """Validate ``df`` against the raw-data suite and return the result."""
+def validate_raw(df, suite=None):
+    """Валидирует df по сьюиту, возвращает результат GE."""
     ctx = _get_context()
     try:
         ds = ctx.data_sources.get("pd_raw")
     except KeyError:
         ds = ctx.data_sources.add_pandas(name="pd_raw")
-    batch = ds.read_dataframe(df)  # ephemeral asset per call
+    batch = ds.read_dataframe(df)  # ephemeral-ассет на каждый вызов
     return batch.validate(suite if suite is not None else build_raw_suite())
 
 
-def assert_valid(df: pd.DataFrame, suite: ExpectationSuite | None = None) -> None:
-    """Validate ``df`` and raise ``ValueError`` if any expectation fails."""
+def assert_valid(df, suite=None):
+    """Валидация с падением ValueError при любом несоответствии."""
     result = validate_raw(df, suite)
     if not result.success:
         failed = [r.expectation_config["kwargs"] for r in result.results if not r.success]
-        raise ValueError(f"Data validation failed: {len(failed)} expectation(s) not met: {failed}")
+        raise ValueError(
+            f"Валидация данных не пройдена: не выполнены {len(failed)} expectation: {failed}"
+        )

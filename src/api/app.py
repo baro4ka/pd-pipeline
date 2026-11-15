@@ -1,14 +1,12 @@
-"""FastAPI serving for the PD model.
+"""FastAPI-сервинг PD-модели.
 
-Endpoints:
-    GET  /health   -> service + model status
-    POST /predict  -> JSON with feature(s) -> class + default probability
+Эндпоинты:
+    GET  /health   -> статус сервиса и модели
+    POST /predict  -> JSON с признаками -> класс + вероятность дефолта
 
-The model is the DVC-tracked artifact models/best_model.joblib
-(a full sklearn Pipeline: preprocessor + classifier).
+Модель — артефакт под DVC models/best_model.joblib
+(полный sklearn-пайплайн: препроцессинг + классификатор).
 """
-
-from __future__ import annotations
 
 import joblib
 import pandas as pd
@@ -25,23 +23,26 @@ _model = None
 
 
 def get_model():
+    """Ленивая загрузка модели (один раз на процесс)."""
     global _model
     if _model is None:
         if not MODEL_PATH.exists():
             raise HTTPException(
                 status_code=503,
-                detail=f"Model not found: {MODEL_PATH}. Run training first "
-                "(python -m src.models.train).",
+                detail=(
+                    f"Модель не найдена: {MODEL_PATH}. "
+                    "Сначала обучите (python -m src.models.train)."
+                ),
             )
         _model = joblib.load(MODEL_PATH)
     return _model
 
 
-def _predict_frame(X: pd.DataFrame) -> pd.DataFrame:
+def _predict_frame(X):
     model = get_model()
     missing = [c for c in FEATURES if c not in X.columns]
     if missing:
-        raise HTTPException(status_code=422, detail=f"Missing features: {missing}")
+        raise HTTPException(status_code=422, detail=f"Не хватает признаков: {missing}")
     X = X[FEATURES]
     proba = model.predict_proba(X)[:, 1]
     out = pd.DataFrame(
@@ -56,25 +57,28 @@ def _predict_frame(X: pd.DataFrame) -> pd.DataFrame:
 
 @app.get("/health")
 def health():
-    get_model()  # fail fast if the model is missing
+    get_model()  # сразу падаем, если модели нет
     return {"status": "ok", "model": MODEL_PATH.name, "n_features": len(FEATURES)}
 
 
 @app.post("/predict")
 def predict(payload: dict | list[dict]):
-    """Accept one feature dict or a list of them; returns class + probability."""
+    """Принимает dict признаков или список; возвращает класс + вероятность."""
     items = payload if isinstance(payload, list) else [payload]
     if not items:
-        raise HTTPException(status_code=422, detail="Empty payload")
+        raise HTTPException(status_code=422, detail="Пустой payload")
     X = pd.DataFrame(items)
     try:
         result = _predict_frame(X)
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Prediction failed: {exc}") from exc
+        raise HTTPException(status_code=422, detail=f"Ошибка предсказания: {exc}") from exc
 
     records = result.to_dict(orient="records")
     if isinstance(payload, list):
         return {"predictions": records}
-    return {"default_probability": records[0]["default_probability"], "class": records[0]["class"]}
+    return {
+        "default_probability": records[0]["default_probability"],
+        "class": records[0]["class"],
+    }

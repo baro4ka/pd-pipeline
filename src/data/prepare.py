@@ -1,12 +1,8 @@
-"""Prepare stage (DVC): raw CSV -> cleaned + featured dataset.
+"""Стадия DVC prepare: сырой CSV -> очищенный датасет с инженерными признаками.
 
-Usage:
-    python -m src.data.prepare
-
-Output: data/processed/features.csv (all engineered features + target).
+Запуск: python -m src.data.prepare
+Результат: data/processed/features.csv (все признаки + таргет).
 """
-
-from __future__ import annotations
 
 import sys
 
@@ -14,14 +10,14 @@ from .feature_engineering import build_features
 from .load import PROCESSED_DIR, TARGET, clean, load_raw
 
 
-def main() -> int:
+def main():
     df = clean(load_raw())
     df = build_features(df)
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
     out = PROCESSED_DIR / "features.csv"
     df.to_csv(out, index=False)
-    print(f"prepared {len(df)} rows x {len(df.columns)} cols -> {out}")
-    print(f"target balance: {df[TARGET].mean():.4f}")
+    print(f"подготовлено {len(df)} строк x {len(df.columns)} колонок -> {out}")
+    print(f"доля дефолтов: {df[TARGET].mean():.4f}")
     return 0
 
 

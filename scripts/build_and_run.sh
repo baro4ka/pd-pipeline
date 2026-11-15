@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Docker image and run the API container locally.
+# Сборка Docker-образа и локальный запуск API-контейнера.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,5 +25,5 @@ curl -s -X POST http://localhost:8000/predict \
     "age_group": 1, "limit_bal_log": 12.2
   }'
 echo
-echo "API is running at http://localhost:8000 (container: pd-api)"
-echo "Stop it with: docker rm -f pd-api"
+echo "API запущен: http://localhost:8000 (контейнер: pd-api)"
+echo "Остановка: docker rm -f pd-api"

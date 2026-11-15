@@ -1,12 +1,11 @@
-"""Tests for the Great Expectations validation suite (F2).
+"""Тесты GE-сьюита валидации (F2).
 
-The main test validates the real incoming dataset. The anomaly tests inject
-defects into a sample and assert that the suite catches them — this is the
-"test that fails if anomalies appear in new data" required by the TZ.
+Основной тест валидирует реальный входящий датасет. Тесты аномалий вставляют
+дефекты в выборку и проверяют, что сьюит их ловит — это и есть «тест, который
+провалится, если в новых данных появятся аномалии» по ТЗ.
 """
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from src.data.load import RAW_CSV, load_raw
@@ -14,7 +13,7 @@ from src.data.validation import assert_valid, build_raw_suite, validate_raw
 
 
 @pytest.fixture(scope="module")
-def raw_df() -> pd.DataFrame:
+def raw_df():
     return load_raw(RAW_CSV)
 
 
@@ -24,7 +23,7 @@ def suite():
 
 
 @pytest.fixture(scope="module")
-def sample(raw_df) -> pd.DataFrame:
+def sample(raw_df):
     return raw_df.sample(500, random_state=42)
 
 

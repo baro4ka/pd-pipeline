@@ -73,7 +73,7 @@ pytest
 
 # Обучение (5 экспериментов в MLflow: logreg/gb GridSearchCV + gb/hgb/rf фикс. конфиги)
 python -m src.models.train           # полный датасет; артефакты в data/processed/ и mlruns/
-python -m src.models.train --quick   # сабсэмпл 5k (быстрая проверка)
+python -m src.models.train --subsample  # сабсэмпл 5k (быстрая проверка)
 
 # MLflow UI (эксперименты, метрики, модели, ROC-кривые)
 mlflow ui --backend-store-uri file:mlruns
@@ -113,4 +113,4 @@ ROC-кривая: `data/processed/roc_curve.png`, таблица метрик: `
 | 6 | pytest + GitHub Actions | ✅ (workflow готов, запуск после пуша в GitHub) |
 | 7 | Docker + FastAPI /predict | ✅ |
 | 8 | Мониторинг дрифта (PSI) | ✅ |
-| 9 | Презентация | ⏳ F9 |
+| 9 | Презентация | ✅ |

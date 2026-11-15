@@ -15,11 +15,13 @@ ENV/
 # Data (managed by DVC from F5)
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/*.dvc
 *.csv
 
 # Models / artifacts
 models/*
 !models/.gitkeep
+!models/*.dvc
 mlruns/
 *.pkl
 *.joblib

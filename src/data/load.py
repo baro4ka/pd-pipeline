@@ -1,4 +1,4 @@
-"""Data loading and initial cleaning for the PD (default prediction) model."""
+"""Загрузка и первичная очистка данных для PD-модели (предсказание дефолта)."""
 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
 
 TARGET = "default.payment.next.month"
 
-# Payment-status columns, ordered most recent (PAY_0) -> oldest (PAY_6)
+# Статусы оплаты: от свежей (PAY_0) к старой (PAY_6); PAY_1 в датасете отсутствует
 PAY_COLS = ["PAY_0", "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6"]
 BILL_COLS = [f"BILL_AMT{i}" for i in range(1, 7)]
 PAYAMT_COLS = [f"PAY_AMT{i}" for i in range(1, 7)]
@@ -19,19 +19,19 @@ CATEGORICAL_COLS = ["SEX", "EDUCATION", "MARRIAGE"]
 NUMERIC_BASE = ["LIMIT_BAL", "AGE"]
 
 
-def load_raw(path=RAW_CSV) -> pd.DataFrame:
-    """Load the raw UCI credit-card dataset."""
+def load_raw(path=RAW_CSV):
+    """Читает исходный CSV (UCI Credit Card)."""
     return pd.read_csv(path)
 
 
-def clean(df: pd.DataFrame) -> pd.DataFrame:
-    """Initial cleaning: drop ID, drop rows with any missing value, validate target.
+def clean(df):
+    """Первичная очистка: убирает ID и строки с пропусками, проверяет бинарность таргета.
 
-    Returns a copy. The target column keeps its original name (see TARGET).
+    Возвращает копию; имя таргета не меняется (см. TARGET).
     """
     df = df.drop(columns=["ID"], errors="ignore").copy()
     df = df.dropna()
     bad = df[~df[TARGET].isin([0, 1])]
     if len(bad):
-        raise ValueError(f"Target {TARGET} has non-binary values: {bad[TARGET].unique()}")
+        raise ValueError(f"Таргет {TARGET} содержит небинарные значения: {bad[TARGET].unique()}")
     return df
