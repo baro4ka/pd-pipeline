@@ -19,5 +19,6 @@ uvicorn[standard]==0.42.0
 
 # Testing / lint
 pytest==9.1.1
+httpx2==2.16.0
 flake8==7.4.1
 black==26.10.1
