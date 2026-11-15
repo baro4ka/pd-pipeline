@@ -12,19 +12,22 @@ env/
 .venv/
 ENV/
 
-# Data (managed by DVC from F5)
+# Data (датасет и артефакты пайплайна — в репозитории)
+data/raw/*
+!data/raw/.gitkeep
+!data/raw/UCI_Credit_Card.csv
 data/processed/*
 !data/processed/.gitkeep
-!data/processed/*.dvc
-*.csv
+!data/processed/features.csv
+!data/processed/metrics.csv
+!data/processed/roc_*.png
 
 # Models / artifacts
 models/*
 !models/.gitkeep
-!models/*.dvc
+!models/best_model.joblib
 mlruns/
 *.pkl
-*.joblib
 
 # DVC
 .dvc/cache/

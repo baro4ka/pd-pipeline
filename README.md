@@ -12,7 +12,7 @@
 ```
 pd-pipeline/
 ├── data/
-│   ├── raw/          # исходный UCI_Credit_Card.csv (управляется DVC)
+│   ├── raw/          # исходный UCI_Credit_Card.csv
 │   └── processed/    # подготовленные данные
 ├── notebooks/        # EDA и эксперименты
 │   └── 01_eda.ipynb
@@ -27,25 +27,24 @@ pd-pipeline/
 │   └── api/          # FastAPI /predict (F7)
 │       └── app.py
 ├── tests/            # pytest (F6)
-├── models/           # обученные модели (DVC)
+├── models/           # обученные модели
 ├── dvc.yaml          # DVC-пайплайн prepare/train (F5)
 ├── requirements.txt
 └── README.md
 ```
 
-## Публикация в GitHub (CI + DVC remote)
+## Публикация в GitHub
 
 ```bash
 git remote add origin https://github.com/<user>/pd-pipeline.git
 git push -u origin main
-
-# DVC remote — тот же репозиторий (публичный, pull в CI без токена)
-dvc remote add -d origin https://github.com/<user>/pd-pipeline.git
-dvc push
 ```
 
+Датасет, подготовленные данные и обученная модель хранятся в репозитории
+(git); DVC (`dvc.yaml`/`dvc.lock`) управляет воспроизводимостью пайплайна.
+
 После пуша GitHub Actions (`.github/workflows/ci.yml`) автоматически:
-flake8 → black --check → dvc pull → валидация Great Expectations → pytest.
+flake8 → black --check → валидация Great Expectations → pytest.
 
 ## Установка
 
@@ -55,8 +54,7 @@ venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 ```
 
-Данные: `data/raw/UCI_Credit_Card.csv` (после `dvc pull` на этапе F5;
-локально файл уже на месте).
+Данные: `data/raw/UCI_Credit_Card.csv` — в репозитории.
 
 ## Запуск
 
@@ -110,7 +108,7 @@ ROC-кривая: `data/processed/roc_curve.png`, таблица метрик: `
 | 3 | Sklearn Pipeline + GridSearchCV + метрики | ✅ |
 | 4 | MLflow (≥5 экспериментов) | ✅ |
 | 5 | DVC (dvc.yaml, prepare/train) | ✅ |
-| 6 | pytest + GitHub Actions | ✅ (workflow готов, запуск после пуша в GitHub) |
+| 6 | pytest + GitHub Actions | ✅ |
 | 7 | Docker + FastAPI /predict | ✅ |
 | 8 | Мониторинг дрифта (PSI) | ✅ |
 | 9 | Презентация | ✅ |
